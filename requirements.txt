@@ -1,0 +1,14 @@
+python>=3.10
+pandas
+numpy
+networkx
+ray
+tqdm
+click
+logging
+sklearn
+skopt
+xgboost
+imblearn
+matplotlib
+joblib
