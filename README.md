@@ -18,3 +18,16 @@ Example code:
 Example code
 ```python CombDNF_classification_CLI.py -f features.tsv -g ground_truth.tsv -o output/ -p -pd both -pl 1 -c all -ba adasyn -t grid -sm matthews_corrcoef -ns 5 -r 123 -cpu 4```
 
+
+# Data
+We generated disease-specific drug combination features with CombDNF for the following diseases:
+
+1. Neoplasms
+2. Hypertension
+3. Cardiovascular diseases
+4. Nervous system diseases
+
+All files are available in data/
+
+## Ground truth data
+
