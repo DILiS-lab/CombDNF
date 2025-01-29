@@ -79,7 +79,15 @@ def merge_features_groundtruth(
             features_only_data = features_only_data[features_only_data['drugA'].isin(gt_drugs) | features_only_data['drugB'].isin(gt_drugs)]
         elif predictions_drugs == 'all':
             features_only_data = features_only_data
+        ### check if drugs in feature data are in ground truth data
+        if len(set(features_only_data.drugA.to_list() + features_only_data.drugB.to_list()) - set(gt_drugs)) > 0:
+            logging.info(f"CAUTION: Predictions of new drug combinations will include some drugs that are not in ground truth data!")
 
+        ### check if there are any drug combinations left for prediction
+        if features_only_data.shape[0] == 0:
+            logging.info(f"ERROR: No new drug combinations left for prediction after filtering for drug combinations in ground truth data!")
+            logging.info(f"ERROR: No new drug combinations will be predicted!")
+            features_only_data = None
     else:
         features_only_data = None
     
@@ -90,7 +98,7 @@ def merge_features_groundtruth(
     merged_data.set_index(['drugA', 'drugB', 'drugcomb_sorted'], inplace=True)
     
     ### clean feature only data for NaN values
-    if features_only_prediction:        
+    if features_only_prediction and features_only_data is not None:        
         features_only_data = features_only_data.dropna(axis=0, how='all').dropna(axis=1, how='all')
         logging.info(f"Shape of feature only data: {features_only_data.shape}")
         ### set index for feature only data

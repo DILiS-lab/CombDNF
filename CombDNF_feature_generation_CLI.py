@@ -240,7 +240,7 @@ def get_distance_measures(network, nodesA, nodesB, idA, idB, dBB=None, sp_length
         sp_lengths (dict, optional): precalculated shortest path lengths. Defaults to None.
         weighted (bool, optional): if True, use weighted network. Defaults to False.
     output:
-        idA (str), idB (str), d (float), protein_overlap (int), meanSP (float), medianSP (float), minSP (float), maxSP (float)
+        idA (str), idB (str), d (float), protein_overlap (int), mean_sp (float), median_sp (float), min_sp (float), max_sp (float)
     """
     ### compute distance score between nodes in nodesA and nodesB
     ### if nodesA or nodesB not given return NaN
@@ -282,7 +282,7 @@ def calculate_drug_drug_distance_scores(network, drug_interactions, drug_targets
         d = get_distance_measures(network, targetsA, targetsB, drugA, drugB, sp_lengths=sp_lengths, weighted=weighted)
         distance_scores.append(d)
     return pd.DataFrame(
-        distance_scores, columns=['drugA', 'drugB', 's', 'op', 'meanSP', 'medianSP', 'minSP', 'maxSP']
+        distance_scores, columns=['drugA', 'drugB', 's', 'overlap', 'mean_sp', 'median_sp', 'min_sp', 'max_sp']
     ).dropna()
 
 
@@ -322,7 +322,7 @@ def calculate_drug_drug_distance_scores_parallel_chunks(network, drug_interactio
     progress_bar.close()
     ray.shutdown()
     return (
-        pd.DataFrame(distance_scores_res, columns=['drugA', 'drugB', 's', 'op', 'meanSP', 'medianSP', 'minSP', 'maxSP'])
+        pd.DataFrame(distance_scores_res, columns=['drugA', 'drugB', 's', 'overlap', 'mean_sp', 'median_sp', 'min_sp', 'max_sp'])
         .dropna()
         .reset_index(drop=True)
     )
@@ -354,7 +354,7 @@ def calculate_drug_disease_distance_scores(network, drugs, drug_targets, disease
         d = get_distance_measures(network, targets, disease_nodes, drug, disease_id, dBB, sp_lengths=sp_lengths, weighted=weighted)
         distance_scores.append(d)
     return pd.DataFrame(
-        distance_scores, columns=['drug', 'disease', 's', 'op', 'meanSP', 'medianSP', 'minSP', 'maxSP']
+        distance_scores, columns=['drug', 'disease', 's', 'overlap', 'mean_sp', 'median_sp', 'min_sp', 'max_sp']
     ).dropna()
 
 
@@ -397,7 +397,7 @@ def calculate_drug_disease_distance_scores_parallel_chunks(network, drugs, drug_
     progress_bar.close()
     ray.shutdown()
     return (
-        pd.DataFrame(distance_scores_res, columns=['drug', 'disease', 's', 'op', 'meanSP', 'medianSP', 'minSP', 'maxSP'])
+        pd.DataFrame(distance_scores_res, columns=['drug', 'disease', 's', 'overlap', 'mean_sp', 'median_sp', 'min_sp', 'max_sp'])
         .dropna()
         .reset_index(drop=True)
     )
@@ -467,7 +467,7 @@ def get_z_score(network, target_nodes, disease_nodes, drug_id, weighted=False, r
     # if node bins not given, bin the nodes by similar degree and min_bin_size
     if bins is None and (random_disease_nodes is None or random_target_nodes is None):
         ### if lengths is given, it will only use nodes with given length!
-        bins = get_degree_binning(network, min_bin_size, sp_lengths)
+        bins = get_degree_binning(network, min_bin_size)
     ### get random drug target nodes from bins
     if random_target_nodes is None:
         random_target_nodes = pick_random_nodes_matching_selected(network, bins, target_nodes, n_random, degree_aware=True, seed=seed)
@@ -514,6 +514,13 @@ def get_degree_binning(network, bin_size):
     ### get list of degrees
     degrees_list = degree_to_nodes.keys()
     degrees_list = sorted(degrees_list)
+
+    ### check if bin_size is smaller than number of different degrees
+    ### reduce bin_size if necessary
+    if bin_size > len(degrees_list):
+        bin_size = 10
+        if bin_size >= len(degrees_list):
+            bin_size = 2
     ### bin the degrees by bin_size or nodes in bins
     bins = []
     i = 0
@@ -531,8 +538,6 @@ def get_degree_binning(network, bin_size):
         ### if final bin smaller than bin_sizes add nodes to previous bin
         ### otherwise add new bin
         if len(nodes_bin) < bin_size: ###!!!
-            # print(nodes_bin)
-            # print('bins', bins)
             low_degree_, high_degree_, nodes_bin_ = bins[-1]
             bins[-1] = (low_degree_, high_degree, nodes_bin_ + nodes_bin)
         else:
@@ -567,7 +572,7 @@ def pick_random_nodes_matching_selected(network, bins, nodes_selected, n_random,
             if connected:
                 raise ValueError("This is not implemented! Please either set 'degree_aware=True' or 'connected=True'!")
             ### get degree equivalent nodes for selected nodes
-            node_to_equivalent_nodes = get_degree_equivalents(nodes_selected, bins, network)
+            node_to_equivalent_nodes = get_degree_equivalents(network, nodes_selected, bins)
             nodes_random = set()
             for node, equivalent_nodes in node_to_equivalent_nodes.items():
                 chosen = rnd.choice(equivalent_nodes)
@@ -632,7 +637,7 @@ def calculate_z_scores(network, disease_nodes, drug_targets, drugs, sp_lengths=N
     """
 
     ### get degree bins
-    degree_bins = get_degree_binning(network, bin_size=nodes_bin_size, sp_lengths=sp_lengths)
+    degree_bins = get_degree_binning(network, bin_size=nodes_bin_size)
     ### compute z-score for each drug
     result_set = []
     for drug in tqdm(drugs, total=len(drugs)):
@@ -662,7 +667,7 @@ def calculate_z_scores_parallel(network, disease_nodes, drug_targets, drugs, sp_
     """
 
     ### get degree bins
-    degree_bins = get_degree_binning(network, bin_size=nodes_bin_size, sp_lengths=sp_lengths)
+    degree_bins = get_degree_binning(network, bin_size=nodes_bin_size)
     ### compute z-score for each drug
     result_set = []
     ### initialise ray for parallel computation
@@ -771,7 +776,7 @@ def main(network_file, targets_file, disease_module_file, output_path, weights, 
         os.makedirs(output_path)
 
     logging.basicConfig(
-        handlers=[logging.FileHandler(f'{output_path}/CombDNF.log'),
+        handlers=[logging.FileHandler(f'{output_path}/CombDNF_feature_generation.log'),
                   logging.StreamHandler()], 
         level=logging.INFO, 
         format='[%(asctime)s] %(message)s', 
@@ -793,9 +798,9 @@ def main(network_file, targets_file, disease_module_file, output_path, weights, 
     
     logging.info(f'checking for drug targets in network ...')
     drug_targets_df = drug_targets_df[drug_targets_df['target'].astype(str).isin(set(ppi_network.nodes()))]
-    drugs_list = list(drug_targets_df.iloc[:, 0].unique())
+    drugs_list = list(drug_targets_df.drug.unique())
     drug_targets_df = drug_targets_df.set_index('drug')    
-    logging.info(f'{len(drugs_list)} drugs extracted.')
+    logging.info(f'{len(drugs_list)} drugs with targets in network extracted.')
     logging.info(f'{drug_targets_df.shape[0]} drug-target interactions with targets in network.')
 
     logging.info(f'combining all pairwise drug combination of {len(drugs_list)} drugs ...')
@@ -866,13 +871,14 @@ def main(network_file, targets_file, disease_module_file, output_path, weights, 
         t=time()
         drug_disease_distance_scores = calculate_drug_disease_distance_scores_parallel_chunks(ppi_network, drugs_list, drug_targets_df, disease_nodes, 'disease', sp_lengths=sp_lengths_df, weighted=weights, num_cpus=num_cpus)
         logging.info(f'drug-disease distance scores calculated in {round((time()-t)/60, 3)} minutes.')
-        drug_disease_distance_scores.drop(columns=['disease']).to_csv(f'{output_path}/CombDNF_drug_disease_scores.tsv', sep='\t', index=False) #!!! TODO
+        # drug_disease_distance_scores.drop(columns=['disease']).to_csv(f'{output_path}/CombDNF_drug_disease_scores.tsv', sep='\t', index=False)
 
         logging.info('calculating drug-disease z-scores in parallel ...')
         t=time()
         drug_disease_z_scores = calculate_z_scores_parallel(ppi_network, disease_nodes, drug_targets_df, drugs_list, sp_lengths=sp_lengths_df, weighted=weights, nodes_bin_size=100, n_random=100, num_cpus=num_cpus)
         logging.info(f'drug-disease z-scores calculated in {round((time()-t)/60, 3)} minutes.')
-        drug_disease_z_scores.to_csv(f'{output_path}/CombDNF_drug_disease_z_scores.tsv', sep='\t', index=False)
+        drug_disease_distance_scores = pd.merge(drug_disease_distance_scores.drop(columns=['disease']), drug_disease_z_scores, on='drug')
+        drug_disease_distance_scores.sort_values(by='drug').to_csv(f'{output_path}/CombDNF_drug_disease_scores.tsv', sep='\t', index=False)
     
     else:
         if drug_combi_sabs_file is None:
@@ -886,24 +892,25 @@ def main(network_file, targets_file, disease_module_file, output_path, weights, 
         t=time()
         drug_disease_distance_scores = calculate_drug_disease_distance_scores(ppi_network, drugs_list, drug_targets_df, disease_nodes, 'disease', sp_lengths=sp_lengths_df, weighted=weights)
         logging.info(f'drug-disease distance scores calculated in {round((time()-t)/60, 3)} minutes.')
-        drug_disease_distance_scores.drop(columns=['disease']).to_csv(f'{output_path}/CombDNF_drug_disease_scores.tsv', sep='\t', index=False)
+        # drug_disease_distance_scores.drop(columns=['disease']).to_csv(f'{output_path}/CombDNF_drug_disease_scores.tsv', sep='\t', index=False)
 
         logging.info('calculating drug-disease z-scores ...')
         t=time()
         drug_disease_z_scores = calculate_z_scores(ppi_network, disease_nodes, drug_targets_df, drugs_list, sp_lengths=sp_lengths_df, weighted=weights, nodes_bin_size=100, n_random=100)
         logging.info(f'drug-disease z-scores calculated in {round((time()-t)/60, 3)} minutes.')
-        drug_disease_z_scores.to_csv(f'{output_path}/CombDNF_drug_disease_z_scores.tsv', sep='\t', index=False)
+        drug_disease_distance_scores = pd.merge(drug_disease_distance_scores.drop(columns=['disease']), drug_disease_z_scores, on='drug')
+        drug_disease_distance_scores.sort_values(by='drug').to_csv(f'{output_path}/CombDNF_drug_disease_scores.tsv', sep='\t', index=False)
 
 
     logging.info(f'assemblying final table ...')
     drugs_list = list(set(drug_drug_distance_scores.iloc[:,0]).union(set(drug_drug_distance_scores.iloc[:,1])))
-    all_scores = drug_drug_distance_scores.iloc[:,0:2]
-    all_scores['sAB'] = drug_drug_distance_scores.iloc[:,2]
-    all_scores['overlapAB'] = drug_drug_distance_scores.iloc[:,3]
-    all_scores['mean_spAB'] = drug_drug_distance_scores.iloc[:,4]
-    all_scores['median_spAB'] = drug_drug_distance_scores.iloc[:,5]
-    all_scores['min_spAB'] = drug_drug_distance_scores.iloc[:,6]
-    all_scores['max_spAB'] = drug_drug_distance_scores.iloc[:,7]
+    all_scores = drug_drug_distance_scores.loc[:,['drugA', 'drugB']]
+    all_scores['sAB'] = drug_drug_distance_scores.loc[:,'s']
+    all_scores['overlapAB'] = drug_drug_distance_scores.loc[:,'overlap']
+    all_scores['mean_spAB'] = drug_drug_distance_scores.loc[:,'mean_sp']
+    all_scores['median_spAB'] = drug_drug_distance_scores.loc[:,'median_sp']
+    all_scores['min_spAB'] = drug_drug_distance_scores.loc[:,'min_sp']
+    all_scores['max_spAB'] = drug_drug_distance_scores.loc[:,'max_sp']
     all_scores['zTAD'] = np.nan
     all_scores['zTBD'] = np.nan
     all_scores['zDTA'] = np.nan
@@ -932,11 +939,11 @@ def main(network_file, targets_file, disease_module_file, output_path, weights, 
         all_scores.loc[all_scores.drugB == drug, 'zDTB'] = zDT
 
         s = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 's'].iloc[0].astype(float)
-        op = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 'op'].iloc[0].astype(float)
-        meansp = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 'meanSP'].iloc[0].astype(float)
-        mediansp = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 'medianSP'].iloc[0].astype(float)
-        minsp = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 'minSP'].iloc[0].astype(float)
-        maxsp = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 'maxSP'].iloc[0].astype(float)
+        op = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 'overlap'].iloc[0].astype(float)
+        meansp = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 'mean_sp'].iloc[0].astype(float)
+        mediansp = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 'median_sp'].iloc[0].astype(float)
+        minsp = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 'min_sp'].iloc[0].astype(float)
+        maxsp = drug_disease_distance_scores.loc[drug_disease_distance_scores.drug == drug, 'max_sp'].iloc[0].astype(float)
         all_scores.loc[all_scores.drugA == drug, 'sAD'] = s
         all_scores.loc[all_scores.drugB == drug, 'sBD'] = s
         all_scores.loc[all_scores.drugA == drug, 'overlapAD'] = op
@@ -944,7 +951,7 @@ def main(network_file, targets_file, disease_module_file, output_path, weights, 
         all_scores.loc[all_scores.drugA == drug, 'mean_spAD'] = meansp
         all_scores.loc[all_scores.drugB == drug, 'mean_spBD'] = meansp
         all_scores.loc[all_scores.drugA == drug, 'median_spAD'] = mediansp
-        all_scores.loc[all_scores.drugB == drug, 'medianspBD'] = mediansp
+        all_scores.loc[all_scores.drugB == drug, 'median_spBD'] = mediansp
         all_scores.loc[all_scores.drugA == drug, 'min_spAD'] = minsp
         all_scores.loc[all_scores.drugB == drug, 'min_spBD'] = minsp
         all_scores.loc[all_scores.drugA == drug, 'max_spAD'] = maxsp

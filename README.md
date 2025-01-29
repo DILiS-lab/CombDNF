@@ -31,3 +31,7 @@ All files are available in data/
 
 ## Ground truth data
 
+Ground truth data was gathered from the following sources:
+
+
+

@@ -181,7 +181,7 @@ def main(
 
     ### set up logging to command line and file
     logging.basicConfig(
-        handlers=[logging.FileHandler(f'{output_path}/logging.log'),
+        handlers=[logging.FileHandler(f'{output_path}/CombDNF_classification.log'),
                   logging.StreamHandler()], 
         level=logging.INFO, 
         format='[%(asctime)s] %(message)s', 
@@ -201,7 +201,7 @@ def main(
         classification_models = ['xgb']
 
     logging.info(f"Output files will be saved in {output_path}")
-    logging.info(f"The log is saved in {output_path}/logging.log")
+    logging.info(f"The log is saved in {output_path}/CombDNF_classification.log")
     logging.info(f"Configurations: \n"
                  f"Features file: {features_file}\n"
                  f"Ground truth file: {ground_truth_file}\n"
@@ -234,17 +234,19 @@ def main(
     logging.info(f"Shape of merged and swapped data: {X.shape}")
     logging.info(f"Swapping drugA and drugB labels and all corresponding features ... successful.")
     merged_swapped_df = pd.concat([X, y], axis=1).sort_index(level='drugcomb_sorted', axis=0)
-    merged_swapped_df['original_drugcombo'] = False
-    merged_swapped_df.loc[merged_df.index, 'original_drugcombo'] = True
-    merged_swapped_df = merged_swapped_df.loc[:, ['label', 'original_drugcombo']]
-    merged_swapped_df.to_csv(f"{output_path}/predictions_test_data.csv", sep='\t', index=True)
+    merged_swapped_df['original_drugcomb'] = False
+    merged_swapped_df.loc[merged_df.index, 'original_drugcomb'] = True
+    merged_swapped_df = merged_swapped_df.loc[:, ['label', 'original_drugcomb']]
+    merged_swapped_df.to_csv(f"{output_path}/CombDNF_predictions_test_sets.csv", sep='\t', index=True)
     
-    ### merge feature and ground truth data for predictions
-    if features_only_prediction:
+    ### features data for predictions
+    if features_only_prediction and features_only_df is not None:
         predictions_df = features_only_df
         X_pred_only = predictions_df.copy()
+    elif features_only_prediction and features_only_df is None:
+        features_only_prediction = False
     del features_only_df
-
+    
     ### split data into n_splits stratified groups for cross-validation
     cv_outer = StratifiedGroupKFold(n_splits=n_splits)
     # X = X.sample(frac=1, random_state=random_seed)
@@ -499,21 +501,22 @@ def main(
                 logging.info(f"Prediction of all feature data for fold {i+1}/{n_splits} ... successful in {(time() - t2)/60:.2f} minutes.")
                 
             ### save best model for fold
-            dump(grid.best_estimator_, f"{output_path}/best_model_{cl_model}_fold{i}.joblib")
-            logging.info(f"Best model for fold {i+1}/{n_splits} saved in 'best_model_{cl_model}_fold{i}.joblib'.")
+            dump(grid.best_estimator_, f"{output_path}/CombDNF_best_model_{cl_model}_fold{i}.joblib")
+            logging.info(f"Best model for fold {i+1}/{n_splits} saved in 'CombDNF_best_model_{cl_model}_fold{i}.joblib'.")
 
         logging.info(f"Mean {scoring_method} test score for {cl_model}: {np.mean(model_test_scores):.3f} ({np.std(model_test_scores):.3f})")
         
         ### save scores and parameters for all tested hyperparameters
-        model_val_scores.to_csv(f"{output_path}/predictions_tuning_scores_{cl_model}.csv", sep='\t', index=False)
+        model_val_scores.to_csv(f"{output_path}/CombDNF_hyperparameter_tuning_scores_{cl_model}.csv", sep='\t', index=False)
         ### save test scores for all folds
-        test_scores.to_csv(f"{output_path}/predictions_testset_scores.csv", sep='\t', index=False)
+        test_scores.to_csv(f"{output_path}/CombDNF_predictions_test_sets_scores.csv", sep='\t', index=False)
         ### save predictions for all input features and models
-        merged_swapped_df.to_csv(f"{output_path}/predictions_test_data.csv", sep='\t', index=True)
+        merged_swapped_df.to_csv(f"{output_path}/CombDNF_predictions_test_sets.csv", sep='\t', index=True)
         ### save predictions for features only data
-        predictions_df.to_csv(f"{output_path}/predictions_all_data.csv", sep='\t', index=True)
+        if features_only_prediction:
+            predictions_df.to_csv(f"{output_path}/CombDNF_predictions_new_combinations.csv", sep='\t', index=True)
 
-        logging.info(f"Scores and hyperparameters for method {cl_model} saved in 'predictions_tuning_scores_{cl_model}.csv'.")
+        logging.info(f"Scores and hyperparameters for method {cl_model} saved in 'CombDNF_hyperparameter_tuning_scores_{cl_model}.csv'.")
         logging.info(f"Cross-validation with hyperparameter tuning and testing for {cl_model} ... successful.")
         
         model_test_scores = test_scores[test_scores['model'] == cl_model]
@@ -539,16 +542,16 @@ def main(
         # logging.info(f"Runtime for training and validating {cl_model}: {run_t:.2f} min.")
 
     ### save predictions for all input features and models
-    # merged_swapped_df.to_csv(f"{output_path}/predictions_test_data.csv", sep='\t', index=True)
-    logging.info(f"Predictions for all input features and models saved in 'predictions_test_data.csv'.")
+    # merged_swapped_df.to_csv(f"{output_path}/CombDNF_predictions_test_sets.csv", sep='\t', index=True)
+    logging.info(f"Predictions for all input features and models saved in 'CombDNF_predictions_test_sets.csv'.")
 
     ### save scores for all models
-    # test_scores.to_csv(f"{output_path}/predictions_testset_scores.csv", sep='\t', index=False)
-    logging.info(f"Test set scores for all models and cross-validation folds saved in 'predictions_testset_scores.csv'.")
+    # test_scores.to_csv(f"{output_path}/CombDNF_predictions_test_sets_scores.csv", sep='\t', index=False)
+    logging.info(f"Test set scores for all models and cross-validation folds saved in 'CombDNF_predictions_test_sets_scores.csv'.")
 
     ### save predictions for features only data
-    # predictions_df.to_csv(f"{output_path}/predictions_all_data.csv", sep='\t', index=True)
-    logging.info(f"Predictions for all features data for all models saved in 'predictions_all_data.csv'.")
+    # predictions_df.to_csv(f"{output_path}/CombDNF_predictions_new_combinations.csv", sep='\t', index=True)
+    logging.info(f"Predictions for new drug combinations for all models saved in 'CombDNF_predictions_new_combinations.csv'.")
 
     logging.info(f"Classification model training and evaluation ... successful in {(time() - start_t)/60:.2f} minutes.\n")
 
