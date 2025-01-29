@@ -5,28 +5,39 @@ Here, we propose CombDNF, a novel machine-learning based method for disease-spec
 
 
 # Overview
+
 CombDNF consists of two steps:
 1. Network-based feature generation: Generate features for drug combination from protein-protein interaction network.
 2. Drug Combination classification: Train and evaluate classification XGBoost and other classification models on drug combination data.
 
 ## Requirements
+
 CombDNF is implemented and tested in python 3.10.14. All package requirements are available in requirements.txt
 
-# 1. Network-based feature generation
+## Exemplary data
+See test_data/ for a small test set for testing CombDNF. This also shows the input data structure used in CombDNF.
+
+## 1. Network-based feature generation
+Network-based features are generated using a protein-protein interaction network, drug-target interactions and disease genes as input. Features can be computed on the binary network or weighted network (with ```-w```)
 
 Example run:
 ```python CombDNF_feature_generation_CLI.py -n test_data/test_PPI_network.txt -t test_data/test_drug_targets.txt -dm test_data/test_disease_genes.txt -o test_data/output/ -w -sp -c 4```
 
 For information on all parameters see
-```python CombDNF_feature_generation_CLI.py -h ```
+```python CombDNF_feature_generation_CLI.py -h```
 
-# 2. Drug Combination classification
+## 2. Drug combination classification
+Drug combinations classification uses features and ground truth data input for training and testing XGBoost models for classification.
 
 Example run:
 ```python CombDNF_classification_CLI.py -f test_data/output/CombDNF_scores.tsv -g test_data/test_drug_combinations.tsv -o test_data/output/ -ba adasyn -t grid -sm matthews_corrcoef -ns 5 -pl 1 -r 123 -cpu 4```
 
 For information on all parameters see
-```python CombDNF_classification_CLI.py -h ```
+```python CombDNF_classification_CLI.py -h```
+
+
+## Input data description
+Description will come soon.
 
 
 # Data
