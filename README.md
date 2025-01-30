@@ -79,10 +79,16 @@ All files are available in data/. We predict the drug combinations for these dis
 ## Ground truth data
 
 Ground truth data was gathered from the following sources:
+
+Effective drug combinations:
 - Cheng et al. (2019) supplement: https://doi.org/10.1038/s41467-019-09186-x
 - Das et al. (2019) supplement: https://doi.org/10.1021/acs.jmedchem.8b01610
 - CDCDB (release date June 18, 2024): https://icc.ise.bgu.ac.il/medical_ai/CDCDB/
 - DrugCombDB (release date May 31, 2019): http://drugcombdb.denglab.org/main
+- DrugBank (release 5.1.11): https://go.drugbank.com/releases
+
+Adverse drug combinations:
+- Cheng et al. (2019) supplement: https://doi.org/10.1038/s41467-019-09186-x
 - DrugBank (release 5.1.11): https://go.drugbank.com/releases
 
 
