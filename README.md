@@ -4,6 +4,8 @@ Drug combinations are increasingly applied to treat a wide range of complex dise
 
 Here, we propose CombDNF, a novel machine-learning based method for disease-specific drug combination prediction on clinically validated data. CombDNF is trained and predicts both on clinically approved (effective) and clinically reported adverse drug combinations from a broad collection of data sources. It can cope with the highly imbalanced label distribution in drug combination data. Further, CombDNF leverages network-derived features based on drug target and disease gene relationships. To incorporate uncertainty of the network topology it relies on edge weights in the underlying network.
 
+Supplementary Notes, Figures, and Tables are available [here](https://github.com/DILiS-lab/CombDNF/blob/main/Supplementary%20Notes%2C%20Figures%2C%20and%20Tables.pdf)
+
 
 # Overview
 
